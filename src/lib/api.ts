@@ -26,10 +26,7 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('auth_token');
-      // Don't redirect if already on auth page to prevent loops
-      if (!window.location.pathname.includes('/auth')) {
-        window.location.href = '/auth';
-      }
+      // Do not hard-redirect on 401; let components handle auth state
     }
     return Promise.reject(error);
   }
