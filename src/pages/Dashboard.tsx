@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { StatsCard } from "@/components/StatsCard";
 import { PositionCard } from "@/components/PositionCard";
+import { APIHealthCheck } from "@/components/APIHealthCheck";
 import { useTrading } from "@/hooks/useTrading";
 import { useSubscription } from "@/hooks/useSubscription";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -111,6 +112,11 @@ const Dashboard = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
+        {/* API Health Check */}
+        <div className="mb-6">
+          <APIHealthCheck />
+        </div>
+
         {/* Nasıl Kullanılır */}
         <Card className="border-border bg-card/50 backdrop-blur-sm mb-8">
           <CardHeader>
