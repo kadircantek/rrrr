@@ -68,7 +68,7 @@ const Auth = () => {
       } else {
         await signup(email, password);
       }
-      navigate('/dashboard');
+      // Navigation happens in the auth state effect once user is available
     } catch (error) {
       // Error handling is done in AuthContext
     } finally {
@@ -80,7 +80,7 @@ const Auth = () => {
     setIsLoading(true);
     try {
       await loginWithGoogle();
-      navigate('/dashboard');
+      // Navigation happens in the auth state effect once user is available
     } catch (error) {
       // Error handling is done in AuthContext
     } finally {
