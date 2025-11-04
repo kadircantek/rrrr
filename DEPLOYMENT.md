@@ -1,20 +1,28 @@
-# Deployment Guide - Render.com
+# Deployment Guide - Render.com (Firebase Backend)
+
+## Architecture Overview
+- **Frontend**: React + Vite (deployed on Render as Web Service)
+- **Backend**: Firebase (Authentication, Realtime Database, Storage, Cloud Functions)
+- **Payment**: Paddle or LemonSqueezy
+- **Trading Logic**: Firebase Cloud Functions (Python or Node.js)
 
 ## Prerequisites
 - GitHub repository connected to Render
-- Firebase project configured
+- Firebase project configured and active
 - Payment provider account (Paddle or LemonSqueezy)
 
 ## Step 1: Frontend Deployment (Render Web Service)
 
 1. **Create New Web Service** in Render Dashboard
    - Connect your GitHub repository
-   - Choose "Static Site" service type
+   - Service Type: **Web Service** (not Static Site)
    - Build Command: `npm run build`
-   - Publish Directory: `dist`
+   - Start Command: `npm run preview`
+   - Environment: Node 18.x or higher
 
 2. **Environment Variables** (Add in Render Dashboard)
    ```
+   # Firebase Configuration (from Firebase Console)
    VITE_FIREBASE_API_KEY=your-production-api-key
    VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
    VITE_FIREBASE_DATABASE_URL=https://your-project.firebaseio.com
@@ -24,44 +32,63 @@
    VITE_FIREBASE_APP_ID=your-app-id
    VITE_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
    
-   VITE_TRADING_API_URL=https://your-backend.onrender.com
-   
-   # Payment (Paddle or LemonSqueezy)
+   # Payment Provider (Choose one)
    VITE_PADDLE_VENDOR_ID=your-vendor-id
    VITE_LEMONSQUEEZY_STORE_ID=your-store-id
    
+   # App Configuration
    VITE_APP_ENV=production
    VITE_APP_VERSION=1.0.0
    ```
 
 3. **Deploy Settings**
    - Auto-Deploy: Yes (on main branch)
-   - Node Version: 18.x or higher
+   - Health Check Path: `/` (optional)
 
-## Step 2: Backend Deployment (Python Trading API)
+## Step 2: Firebase Backend Configuration
 
-1. **Create New Web Service** for Backend
-   - Service Type: Web Service
-   - Build Command: `pip install -r requirements.txt`
-   - Start Command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+### Firebase Realtime Database
+Your existing Firebase project is already configured. No additional deployment needed.
 
-2. **Backend Environment Variables**
-   ```
-   FIREBASE_DATABASE_URL=https://your-project.firebaseio.com
-   FIREBASE_SERVICE_ACCOUNT_KEY=<your-service-account-json>
-   
-   # Exchange API Keys (Encrypted in Firebase)
-   ENCRYPTION_KEY=your-32-byte-encryption-key
-   
-   # EMA Strategy Settings
-   EMA_SHORT_PERIOD=9
-   EMA_LONG_PERIOD=21
-   MIN_TIMEFRAME=15m
+### Firebase Cloud Functions (for Trading Logic)
+
+1. **Install Firebase CLI** (if not already installed)
+   ```bash
+   npm install -g firebase-tools
+   firebase login
    ```
 
-## Step 3: Firebase Security Rules
+2. **Initialize Firebase Functions** (in your project root)
+   ```bash
+   firebase init functions
+   ```
+   - Select your Firebase project
+   - Choose Python or Node.js runtime
+   - Install dependencies
 
-Update Firebase Realtime Database Rules:
+3. **Create Trading Strategy Function** (`functions/index.js` or `functions/main.py`)
+   ```javascript
+   // Example: EMA Strategy Cloud Function
+   const functions = require('firebase-functions');
+   const admin = require('firebase-admin');
+   admin.initializeApp();
+   
+   exports.calculateEMA = functions.https.onCall(async (data, context) => {
+     // EMA 9/21 calculation logic
+     const { symbol, period } = data;
+     // Implementation here
+   });
+   ```
+
+4. **Deploy Functions**
+   ```bash
+   firebase deploy --only functions
+   ```
+
+### Firebase Security Rules
+Update in Firebase Console > Realtime Database > Rules:
+
+### Example Security Rules:
 
 ```json
 {
@@ -84,7 +111,7 @@ Update Firebase Realtime Database Rules:
 }
 ```
 
-## Step 4: Payment Integration
+## Step 3: Payment Integration
 
 ### Option A: Paddle
 1. Create products in Paddle Dashboard
@@ -96,7 +123,7 @@ Update Firebase Realtime Database Rules:
 2. Set webhook URL: `https://your-frontend.onrender.com/api/lemonsqueezy/webhook`
 3. Configure variant IDs in environment variables
 
-## Step 5: Domain Configuration
+## Step 4: Domain Configuration
 
 1. **Custom Domain** (Optional)
    - Add custom domain in Render Dashboard
@@ -107,7 +134,7 @@ Update Firebase Realtime Database Rules:
    - Add your domain to Firebase authorized domains
    - Update backend CORS settings to allow your frontend domain
 
-## Step 6: Post-Deployment Checklist
+## Step 5: Post-Deployment Checklist
 
 - [ ] Test authentication flow (signup, login, logout)
 - [ ] Verify Firebase data read/write

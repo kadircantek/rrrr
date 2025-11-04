@@ -36,24 +36,56 @@ src/lib/exchanges/
 
 ### 2. EMA Trading Strategy Backend (Priority: HIGH)
 **Status**: Not started
+**Architecture**: Firebase Cloud Functions (Python or Node.js)
 
-**Options**:
-1. **Python Backend on Render** (Recommended)
-   - FastAPI service
-   - Pandas + TA-Lib for EMA calculations
-   - WebSocket for real-time price data
-   - Celery for scheduled tasks
+**Why Firebase Cloud Functions**:
+- No separate backend server needed
+- Auto-scaling and managed infrastructure
+- Direct Firebase integration (Auth, DB, Storage)
+- Cost-effective for periodic calculations
+- 540s timeout (9 minutes) - sufficient for EMA calculations
 
-2. **Alternative**: Firebase Cloud Functions
-   - Limited to 540s timeout
-   - Suitable for webhook-based triggers only
+**Implementation Options**:
+
+**Option A: Python Cloud Functions** (Recommended for EMA calculations)
+```python
+# functions/main.py
+from firebase_functions import https_fn
+import pandas as pd
+import numpy as np
+
+@https_fn.on_call()
+def calculate_ema(req: https_fn.CallableRequest):
+    # EMA 9/21 calculation logic
+    data = req.data
+    symbol = data.get('symbol')
+    period = data.get('period', '15m')
+    
+    # Fetch price data from exchange API
+    # Calculate EMA 9 and EMA 21
+    # Return signal (buy/sell/hold)
+```
+
+**Option B: Node.js Cloud Functions** (TypeScript)
+```javascript
+// functions/src/index.ts
+import * as functions from 'firebase-functions';
+import * as admin from 'firebase-admin';
+
+export const calculateEMA = functions.https.onCall(async (data, context) => {
+  // EMA calculation logic
+  const { symbol, period } = data;
+  // Implementation
+});
+```
 
 **Tasks**:
-- [ ] Set up Python backend repository
+- [ ] Initialize Firebase Functions in project
 - [ ] Implement EMA 9/21 crossover logic
 - [ ] Add TP/SL management
-- [ ] Create position management endpoints
+- [ ] Create position monitoring function (scheduled)
 - [ ] Add user permission checks (based on subscription tier)
+- [ ] Deploy functions: `firebase deploy --only functions`
 
 ### 3. WebSocket Real-Time Updates (Priority: MEDIUM)
 **Status**: Not started

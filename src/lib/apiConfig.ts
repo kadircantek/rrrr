@@ -2,23 +2,12 @@
 // Centralized API endpoint management
 
 export const API_CONFIG = {
-  // Firebase Realtime Database
+  // Firebase Backend (Authentication, Database, Cloud Functions)
   firebase: {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
     databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
     projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  },
-
-  // Trading API endpoints (your backend)
-  trading: {
-    baseUrl: import.meta.env.VITE_TRADING_API_URL || 'http://localhost:3001',
-    endpoints: {
-      positions: '/api/positions',
-      trades: '/api/trades',
-      strategies: '/api/strategies',
-      exchanges: '/api/exchanges',
-    },
   },
 
   // Exchange API configurations
