@@ -12,6 +12,8 @@ services:
         generateValue: true
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: PYTHON_RUNTIME_VERSION
+        value: 3.11.0
     healthCheckPath: /health
     
   # Frontend Static Site
