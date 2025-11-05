@@ -41,26 +41,26 @@ export const PositionCard = ({ position }: PositionCardProps) => {
       <div className="flex items-center gap-8 w-full sm:w-auto justify-between sm:justify-start">
         <div>
           <p className="text-xs text-muted-foreground">{t('dashboard.entry')}</p>
-          <p className="font-medium">${position.entry.toLocaleString()}</p>
+          <p className="font-medium">${position.entry?.toLocaleString() || '0'}</p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">{t('dashboard.current')}</p>
-          <p className="font-medium">${position.current.toLocaleString()}</p>
+          <p className="font-medium">${position.current?.toLocaleString() || '0'}</p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">{t('dashboard.pnl')}</p>
           <div className="flex items-center gap-1">
-            <p className={`font-medium ${position.pnl > 0 ? "text-success" : "text-danger"}`}>
-              ${position.pnl.toFixed(2)}
+            <p className={`font-medium ${(position.pnl || 0) > 0 ? "text-success" : "text-danger"}`}>
+              ${position.pnl?.toFixed(2) || '0.00'}
             </p>
-            {position.pnl > 0 ? (
+            {(position.pnl || 0) > 0 ? (
               <TrendingUp className="h-4 w-4 text-success" />
             ) : (
               <TrendingDown className="h-4 w-4 text-danger" />
             )}
           </div>
-          <p className={`text-xs ${position.pnl > 0 ? "text-success" : "text-danger"}`}>
-            {position.pnlPercent > 0 ? "+" : ""}{position.pnlPercent}%
+          <p className={`text-xs ${(position.pnlPercent || 0) > 0 ? "text-success" : "text-danger"}`}>
+            {(position.pnlPercent || 0) > 0 ? "+" : ""}{position.pnlPercent || 0}%
           </p>
         </div>
         <Button variant="outline" size="sm">{t('dashboard.close')}</Button>
