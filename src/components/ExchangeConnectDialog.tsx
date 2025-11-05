@@ -30,6 +30,8 @@ const SUPPORTED_EXCHANGES = [
   { id: 'binance', name: 'Binance' },
   { id: 'bybit', name: 'Bybit' },
   { id: 'okx', name: 'OKX' },
+  { id: 'kucoin', name: 'KuCoin' },
+  { id: 'mexc', name: 'MEXC' },
 ];
 
 const ExchangeConnectDialog = ({ open, onOpenChange }: ExchangeConnectDialogProps) => {
