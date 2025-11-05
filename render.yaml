@@ -3,17 +3,14 @@ services:
   - type: web
     name: ema-navigator-backend
     env: python
-    buildCommand: pip install -r backend/requirements.txt
+    runtime: python
+    buildCommand: python --version && pip install --upgrade pip && pip install -r backend/requirements.txt
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: JWT_SECRET_KEY
         generateValue: true
       - key: ENCRYPTION_KEY
         generateValue: true
-      - key: PYTHON_VERSION
-        value: 3.11.0
-      - key: PYTHON_RUNTIME_VERSION
-        value: 3.11.0
     healthCheckPath: /health
     
   # Frontend Static Site
