@@ -109,6 +109,9 @@ const Dashboard = () => {
               <Button variant="default" size="sm" onClick={() => navigate('/trading')}>
                 {t('dashboard.open_trade')}
               </Button>
+              <Button variant="outline" size="sm" onClick={() => navigate('/pricing')}>
+                {t('nav.pricing')}
+              </Button>
               <Button variant="outline" size="sm" onClick={() => navigate('/settings')}>
                 {t('dashboard.settings')}
               </Button>
@@ -141,6 +144,13 @@ const Dashboard = () => {
                       onClick={() => navigate('/trading')}
                     >
                       {t('dashboard.open_trade')}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-start" 
+                      onClick={() => navigate('/pricing')}
+                    >
+                      {t('nav.pricing')}
                     </Button>
                     <Button 
                       variant="outline" 

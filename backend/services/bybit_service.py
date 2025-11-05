@@ -103,11 +103,13 @@ class BybitService:
         tp_percentage: float = 0,
         sl_percentage: float = 0
     ) -> Dict:
-        """Create market order"""
+        """Create market order with optional TP/SL"""
         try:
             timestamp = str(int(time.time() * 1000))
-            
             category = "linear" if is_futures else "spot"
+            
+            print(f"[BYBIT] Creating order: {side} {amount} {symbol}")
+            print(f"[BYBIT] Futures: {is_futures}, Leverage: {leverage}x")
             
             # Set leverage for futures
             if is_futures:
@@ -134,8 +136,28 @@ class BybitService:
                         json=leverage_payload,
                         headers=headers
                     )
+                    print(f"[BYBIT] Leverage set to {leverage}x")
             
-            # Create order
+            # Get current price for TP/SL calculation
+            current_price = await self.get_current_price(symbol, is_futures)
+            
+            # Calculate TP/SL prices
+            tp_price = None
+            sl_price = None
+            
+            if tp_percentage > 0:
+                if side.upper() == "BUY":
+                    tp_price = str(round(current_price * (1 + tp_percentage / 100), 2))
+                else:
+                    tp_price = str(round(current_price * (1 - tp_percentage / 100), 2))
+            
+            if sl_percentage > 0:
+                if side.upper() == "BUY":
+                    sl_price = str(round(current_price * (1 - sl_percentage / 100), 2))
+                else:
+                    sl_price = str(round(current_price * (1 + sl_percentage / 100), 2))
+            
+            # Create order with TP/SL
             order_payload = {
                 "category": category,
                 "symbol": symbol,
@@ -143,6 +165,15 @@ class BybitService:
                 "orderType": "Market",
                 "qty": str(amount)
             }
+            
+            # Add TP/SL to order if specified
+            if tp_price:
+                order_payload["takeProfit"] = tp_price
+                print(f"[BYBIT] TP set at {tp_price}")
+            
+            if sl_price:
+                order_payload["stopLoss"] = sl_price
+                print(f"[BYBIT] SL set at {sl_price}")
             
             order_params = json.dumps(order_payload)
             timestamp = str(int(time.time() * 1000))
@@ -163,10 +194,108 @@ class BybitService:
                     headers=headers
                 )
                 response.raise_for_status()
-                return response.json()
-                    
+                result = response.json()
+                print(f"[BYBIT] Order created: {result.get('result', {}).get('orderId')}")
+                return result
+                     
         except Exception as e:
+            print(f"[BYBIT ERROR] Order failed: {str(e)}")
             raise Exception(f"Bybit order error: {str(e)}")
+    
+    async def close_position(self, symbol: str, is_futures: bool = False) -> Dict:
+        """Close position by setting position to 0"""
+        try:
+            print(f"[BYBIT] Closing position: {symbol}")
+            
+            if not is_futures:
+                raise Exception("Spot doesn't have positions to close")
+            
+            timestamp = str(int(time.time() * 1000))
+            
+            # Get current position
+            positions = await self.get_positions(is_futures)
+            position = next((p for p in positions if p["symbol"] == symbol), None)
+            
+            if not position:
+                raise Exception(f"No open position found for {symbol}")
+            
+            # Close via setting position to 0
+            close_payload = {
+                "category": "linear",
+                "symbol": symbol,
+                "side": "Sell" if position["side"] == "LONG" else "Buy",
+                "orderType": "Market",
+                "qty": str(position["amount"]),
+                "reduceOnly": True
+            }
+            
+            close_params = json.dumps(close_payload)
+            signature = self._generate_signature(close_params, timestamp)
+            
+            headers = {
+                "X-BAPI-API-KEY": self.api_key,
+                "X-BAPI-SIGN": signature,
+                "X-BAPI-TIMESTAMP": timestamp,
+                "X-BAPI-RECV-WINDOW": "5000",
+                "Content-Type": "application/json"
+            }
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{self.BASE_URL}/v5/order/create",
+                    json=close_payload,
+                    headers=headers
+                )
+                response.raise_for_status()
+                result = response.json()
+                print(f"[BYBIT] Position closed: {result.get('result', {}).get('orderId')}")
+                
+                # Cancel all open orders
+                await self.cancel_all_orders(symbol, is_futures)
+                
+                return result
+                
+        except Exception as e:
+            print(f"[BYBIT ERROR] Close position failed: {str(e)}")
+            raise Exception(f"Bybit close position error: {str(e)}")
+    
+    async def cancel_all_orders(self, symbol: str, is_futures: bool = False) -> bool:
+        """Cancel all open orders for a symbol"""
+        try:
+            print(f"[BYBIT] Cancelling all orders for {symbol}")
+            
+            timestamp = str(int(time.time() * 1000))
+            category = "linear" if is_futures else "spot"
+            
+            cancel_payload = {
+                "category": category,
+                "symbol": symbol
+            }
+            
+            cancel_params = json.dumps(cancel_payload)
+            signature = self._generate_signature(cancel_params, timestamp)
+            
+            headers = {
+                "X-BAPI-API-KEY": self.api_key,
+                "X-BAPI-SIGN": signature,
+                "X-BAPI-TIMESTAMP": timestamp,
+                "X-BAPI-RECV-WINDOW": "5000",
+                "Content-Type": "application/json"
+            }
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{self.BASE_URL}/v5/order/cancel-all",
+                    json=cancel_payload,
+                    headers=headers
+                )
+                response.raise_for_status()
+                print(f"[BYBIT] All orders cancelled for {symbol}")
+                return True
+                
+        except Exception as e:
+            print(f"[BYBIT ERROR] Cancel orders failed: {str(e)}")
+            return False
     
     async def get_positions(self, is_futures: bool = False) -> List[Dict]:
         """Get open positions"""

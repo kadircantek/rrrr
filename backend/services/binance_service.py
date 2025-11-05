@@ -101,9 +101,13 @@ class BinanceService:
         tp_percentage: float = 0,
         sl_percentage: float = 0
     ) -> Dict:
-        """Create market order"""
+        """Create market order with optional TP/SL"""
         try:
             base_url = self._get_base_url(is_futures)
+            headers = {"X-MBX-APIKEY": self.api_key}
+            
+            print(f"[BINANCE] Creating order: {side} {amount} {symbol}")
+            print(f"[BINANCE] Futures: {is_futures}, Leverage: {leverage}x")
             
             if is_futures:
                 # Set leverage first
@@ -114,16 +118,15 @@ class BinanceService:
                 }
                 leverage_params["signature"] = self._generate_signature(leverage_params)
                 
-                headers = {"X-MBX-APIKEY": self.api_key}
-                
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     await client.post(
                         f"{base_url}/fapi/v1/leverage",
                         data=leverage_params,
                         headers=headers
                     )
+                    print(f"[BINANCE] Leverage set to {leverage}x")
                 
-                # Create futures order
+                # Create futures market order
                 order_params = {
                     "symbol": symbol,
                     "side": side,
@@ -140,7 +143,34 @@ class BinanceService:
                         headers=headers
                     )
                     response.raise_for_status()
-                    return response.json()
+                    order_result = response.json()
+                    print(f"[BINANCE] Order created: {order_result.get('orderId')}")
+                
+                # Get entry price
+                entry_price = float(order_result.get("avgPrice", 0))
+                if entry_price == 0:
+                    entry_price = await self.get_current_price(symbol, is_futures)
+                
+                # Create TP/SL orders if specified
+                tp_order_id = None
+                sl_order_id = None
+                
+                if tp_percentage > 0:
+                    tp_price = entry_price * (1 + tp_percentage / 100) if side == "BUY" else entry_price * (1 - tp_percentage / 100)
+                    tp_order_id = await self._create_tp_sl_order(symbol, "TAKE_PROFIT_MARKET", amount, tp_price, side, is_futures)
+                    print(f"[BINANCE] TP order created at {tp_price}: {tp_order_id}")
+                
+                if sl_percentage > 0:
+                    sl_price = entry_price * (1 - sl_percentage / 100) if side == "BUY" else entry_price * (1 + sl_percentage / 100)
+                    sl_order_id = await self._create_tp_sl_order(symbol, "STOP_MARKET", amount, sl_price, side, is_futures)
+                    print(f"[BINANCE] SL order created at {sl_price}: {sl_order_id}")
+                
+                return {
+                    **order_result,
+                    "tp_order_id": tp_order_id,
+                    "sl_order_id": sl_order_id,
+                    "entry_price": entry_price
+                }
             else:
                 # Spot order
                 order_params = {
@@ -152,8 +182,6 @@ class BinanceService:
                 }
                 order_params["signature"] = self._generate_signature(order_params)
                 
-                headers = {"X-MBX-APIKEY": self.api_key}
-                
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.post(
                         f"{base_url}/api/v3/order",
@@ -161,10 +189,133 @@ class BinanceService:
                         headers=headers
                     )
                     response.raise_for_status()
-                    return response.json()
-                    
+                    order_result = response.json()
+                    print(f"[BINANCE] Spot order created: {order_result.get('orderId')}")
+                    return order_result
+                     
         except Exception as e:
+            print(f"[BINANCE ERROR] Order failed: {str(e)}")
             raise Exception(f"Binance order error: {str(e)}")
+    
+    async def _create_tp_sl_order(self, symbol: str, order_type: str, amount: float, trigger_price: float, original_side: str, is_futures: bool) -> Optional[str]:
+        """Create TP or SL order for futures"""
+        try:
+            base_url = self._get_base_url(is_futures)
+            
+            # Close side is opposite of open side
+            close_side = "SELL" if original_side == "BUY" else "BUY"
+            
+            params = {
+                "symbol": symbol,
+                "side": close_side,
+                "type": order_type,
+                "quantity": amount,
+                "stopPrice": round(trigger_price, 2),
+                "timestamp": int(time.time() * 1000)
+            }
+            
+            if order_type == "TAKE_PROFIT_MARKET":
+                params["workingType"] = "MARK_PRICE"
+            else:
+                params["workingType"] = "MARK_PRICE"
+            
+            params["signature"] = self._generate_signature(params)
+            
+            headers = {"X-MBX-APIKEY": self.api_key}
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{base_url}/fapi/v1/order",
+                    data=params,
+                    headers=headers
+                )
+                response.raise_for_status()
+                result = response.json()
+                return str(result.get("orderId"))
+                
+        except Exception as e:
+            print(f"[BINANCE ERROR] TP/SL order failed: {str(e)}")
+            return None
+    
+    async def close_position(self, symbol: str, is_futures: bool = False) -> Dict:
+        """Close position by creating opposite market order"""
+        try:
+            print(f"[BINANCE] Closing position: {symbol}")
+            
+            if not is_futures:
+                raise Exception("Spot doesn't have positions to close")
+            
+            # Get current position
+            positions = await self.get_positions(is_futures)
+            position = next((p for p in positions if p["symbol"] == symbol), None)
+            
+            if not position:
+                raise Exception(f"No open position found for {symbol}")
+            
+            # Create opposite order
+            close_side = "SELL" if position["side"] == "LONG" else "BUY"
+            amount = position["amount"]
+            
+            base_url = self._get_base_url(is_futures)
+            params = {
+                "symbol": symbol,
+                "side": close_side,
+                "type": "MARKET",
+                "quantity": amount,
+                "timestamp": int(time.time() * 1000)
+            }
+            params["signature"] = self._generate_signature(params)
+            
+            headers = {"X-MBX-APIKEY": self.api_key}
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{base_url}/fapi/v1/order",
+                    data=params,
+                    headers=headers
+                )
+                response.raise_for_status()
+                result = response.json()
+                print(f"[BINANCE] Position closed: {result.get('orderId')}")
+                
+                # Cancel all open orders for this symbol
+                await self.cancel_all_orders(symbol, is_futures)
+                
+                return result
+                
+        except Exception as e:
+            print(f"[BINANCE ERROR] Close position failed: {str(e)}")
+            raise Exception(f"Binance close position error: {str(e)}")
+    
+    async def cancel_all_orders(self, symbol: str, is_futures: bool = False) -> bool:
+        """Cancel all open orders for a symbol (including orphan TP/SL)"""
+        try:
+            print(f"[BINANCE] Cancelling all orders for {symbol}")
+            
+            base_url = self._get_base_url(is_futures)
+            endpoint = "/fapi/v1/allOpenOrders" if is_futures else "/api/v3/openOrders"
+            
+            params = {
+                "symbol": symbol,
+                "timestamp": int(time.time() * 1000)
+            }
+            params["signature"] = self._generate_signature(params)
+            
+            headers = {"X-MBX-APIKEY": self.api_key}
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.delete(
+                    f"{base_url}{endpoint}",
+                    params=params,
+                    headers=headers
+                )
+                response.raise_for_status()
+                print(f"[BINANCE] All orders cancelled for {symbol}")
+                return True
+                
+        except Exception as e:
+            print(f"[BINANCE ERROR] Cancel orders failed: {str(e)}")
+            return False
     
     async def get_positions(self, is_futures: bool = False) -> List[Dict]:
         """Get open positions"""

@@ -89,16 +89,52 @@ async def get_current_user(authorization: str = Header(None)):
 
 async def get_user_plan(user_id: str) -> str:
     """
-    Get user's subscription plan from database/Firebase.
-    Returns: 'free', 'pro', or 'premium'
-    
-    TODO: Implement database lookup
-    For now returns 'free' as default
+    Get user's subscription plan from Firebase Realtime Database.
+    Returns: 'free', 'pro', or 'enterprise'
     """
-    # TODO: Query Firebase Realtime Database or PostgreSQL for user plan
-    # Example Firebase path: /user_subscriptions/{user_id}/plan
-    
-    return "free"  # Default plan
+    try:
+        import firebase_admin
+        from firebase_admin import db
+        
+        # Initialize Firebase Admin if not already done
+        try:
+            firebase_admin.get_app()
+        except ValueError:
+            # App not initialized
+            import firebase_admin
+            from firebase_admin import credentials
+            
+            firebase_db_url = os.getenv("FIREBASE_DATABASE_URL")
+            if not firebase_db_url:
+                return "free"
+            
+            cred = credentials.Certificate({
+                "type": "service_account",
+                "project_id": os.getenv("FIREBASE_PROJECT_ID"),
+                "private_key_id": os.getenv("FIREBASE_PRIVATE_KEY_ID"),
+                "private_key": os.getenv("FIREBASE_PRIVATE_KEY", "").replace("\\n", "\n"),
+                "client_email": os.getenv("FIREBASE_CLIENT_EMAIL"),
+                "client_id": os.getenv("FIREBASE_CLIENT_ID"),
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+            })
+            
+            firebase_admin.initialize_app(cred, {
+                'databaseURL': firebase_db_url
+            })
+        
+        # Get subscription from Firebase
+        ref = db.reference(f'/user_subscriptions/{user_id}')
+        subscription = ref.get()
+        
+        if subscription and isinstance(subscription, dict):
+            return subscription.get('tier', 'free')
+        
+        return "free"
+        
+    except Exception as e:
+        print(f"Error fetching user plan: {str(e)}")
+        return "free"
 
 def check_plan_limits(plan: str, current_positions: int) -> dict:
     """
@@ -113,7 +149,7 @@ def check_plan_limits(plan: str, current_positions: int) -> dict:
     plan_limits = {
         "free": 1,
         "pro": 10,
-        "premium": 50
+        "enterprise": 50
     }
     
     max_positions = plan_limits.get(plan, 1)
@@ -125,3 +161,45 @@ def check_plan_limits(plan: str, current_positions: int) -> dict:
         "current_positions": current_positions,
         "message": f"Your {plan.upper()} plan allows {max_positions} open position(s). Currently: {current_positions}"
     }
+
+async def set_user_plan(user_id: str, plan: str) -> dict:
+    """
+    Set user's subscription plan in Firebase (Admin function)
+    """
+    try:
+        import firebase_admin
+        from firebase_admin import db
+        
+        if plan not in ['free', 'pro', 'enterprise']:
+            raise ValueError("Invalid plan. Must be: free, pro, or enterprise")
+        
+        # Initialize Firebase Admin if needed
+        try:
+            firebase_admin.get_app()
+        except ValueError:
+            return {"success": False, "error": "Firebase not initialized"}
+        
+        # Set subscription in Firebase
+        ref = db.reference(f'/user_subscriptions/{user_id}')
+        subscription_data = {
+            'tier': plan,
+            'startDate': datetime.utcnow().isoformat(),
+            'status': 'active',
+        }
+        
+        if plan != 'free':
+            # Add 30 days expiration for paid plans
+            expiration = datetime.utcnow() + timedelta(days=30)
+            subscription_data['endDate'] = expiration.isoformat()
+        
+        ref.set(subscription_data)
+        
+        return {
+            "success": True,
+            "plan": plan,
+            "message": f"User plan updated to {plan}"
+        }
+        
+    except Exception as e:
+        print(f"Error setting user plan: {str(e)}")
+        return {"success": False, "error": str(e)}

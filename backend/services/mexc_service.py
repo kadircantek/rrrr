@@ -261,9 +261,119 @@ class MEXCService:
                     return active_positions
                 else:
                     raise Exception(f"MEXC API error: {data.get('message', 'Unknown error')}")
-                    
+                     
         except Exception as e:
             raise Exception(f"MEXC positions error: {str(e)}")
+    
+    async def close_position(self, symbol: str, is_futures: bool = False) -> Dict:
+        """Close position"""
+        try:
+            print(f"[MEXC] Closing position: {symbol}")
+            
+            if not is_futures:
+                raise Exception("Spot doesn't have positions to close")
+            
+            # Get current position
+            positions = await self.get_positions(is_futures)
+            position = next((p for p in positions if p["symbol"] == symbol), None)
+            
+            if not position:
+                raise Exception(f"No open position found for {symbol}")
+            
+            # Close via market order
+            base_url = self._get_base_url(is_futures)
+            endpoint = "/api/v1/private/order/submit"
+            
+            close_type = 3 if position["side"] == "LONG" else 4  # 3=close long, 4=close short
+            
+            params = {
+                "symbol": symbol,
+                "price": 0,
+                "vol": position["amount"],
+                "side": "SELL" if position["side"] == "LONG" else "BUY",
+                "type": 5,
+                "openType": close_type,
+                "timestamp": int(time.time() * 1000)
+            }
+            params["signature"] = self._generate_signature(params)
+            
+            headers = {
+                "ApiKey": self.api_key,
+                "Content-Type": "application/json"
+            }
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{base_url}{endpoint}",
+                    json=params,
+                    headers=headers
+                )
+                response.raise_for_status()
+                result = response.json()
+                print(f"[MEXC] Position closed: {result.get('data')}")
+                
+                # Cancel all open orders
+                await self.cancel_all_orders(symbol, is_futures)
+                
+                return result
+                
+        except Exception as e:
+            print(f"[MEXC ERROR] Close position failed: {str(e)}")
+            raise Exception(f"MEXC close position error: {str(e)}")
+    
+    async def cancel_all_orders(self, symbol: str, is_futures: bool = False) -> bool:
+        """Cancel all open orders for a symbol"""
+        try:
+            print(f"[MEXC] Cancelling all orders for {symbol}")
+            
+            base_url = self._get_base_url(is_futures)
+            
+            if is_futures:
+                endpoint = "/api/v1/private/order/cancel_all"
+                params = {
+                    "symbol": symbol,
+                    "timestamp": int(time.time() * 1000)
+                }
+                params["signature"] = self._generate_signature(params)
+                
+                headers = {
+                    "ApiKey": self.api_key,
+                    "Content-Type": "application/json"
+                }
+                
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.post(
+                        f"{base_url}{endpoint}",
+                        json=params,
+                        headers=headers
+                    )
+                    response.raise_for_status()
+            else:
+                endpoint = "/api/v3/openOrders"
+                params = {
+                    "symbol": symbol,
+                    "timestamp": int(time.time() * 1000)
+                }
+                params["signature"] = self._generate_signature(params)
+                
+                headers = {
+                    "X-MEXC-APIKEY": self.api_key
+                }
+                
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.delete(
+                        f"{base_url}{endpoint}",
+                        params=params,
+                        headers=headers
+                    )
+                    response.raise_for_status()
+            
+            print(f"[MEXC] All orders cancelled for {symbol}")
+            return True
+                
+        except Exception as e:
+            print(f"[MEXC ERROR] Cancel orders failed: {str(e)}")
+            return False
 
 
 async def get_balance(api_key: str, api_secret: str, is_futures: bool = False) -> Dict:

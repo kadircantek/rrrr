@@ -65,6 +65,14 @@ try:
 except ImportError:
     print("⚠️ Warning: Payments module not available")
 
+# Include admin router
+try:
+    from backend.api.admin import router as admin_router
+    app.include_router(admin_router)
+    print("✅ Admin module loaded")
+except ImportError:
+    print("⚠️ Warning: Admin module not available")
+
 # CORS Configuration
 app.add_middleware(
     CORSMiddleware,
@@ -610,17 +618,100 @@ async def create_position(position: PositionRequest, current_user: dict = Depend
         raise HTTPException(status_code=500, detail=f"Failed to create position: {str(e)}")
 
 @app.delete("/api/bot/positions/{position_id}")
-async def close_position(position_id: str, current_user: dict = Depends(get_current_user)):
+async def close_position_endpoint(position_id: str, current_user: dict = Depends(get_current_user)):
     """Close trading position"""
-    # TODO: Close position via exchange API
-    # TODO: Update database with closing details
-    return {
-        "message": "Position closed successfully",
-        "position_id": position_id,
-        "closing_price": 46500.0,
-        "pnl": 1500.0,
-        "pnl_percentage": 3.33
-    }
+    try:
+        user_id = current_user['uid']
+        
+        print(f"[CLOSE POSITION] User: {user_id}, Position ID: {position_id}")
+        
+        # TODO: Get position from database
+        # For now, using mock data - replace with actual DB query
+        mock_position = {
+            "id": position_id,
+            "user_id": user_id,
+            "exchange": "binance",  # This should come from DB
+            "symbol": "BTCUSDT",    # This should come from DB
+            "side": "LONG",         # This should come from DB
+            "amount": 0.001,        # This should come from DB
+            "is_futures": True,     # This should come from DB
+            "entry_price": 45000.0, # This should come from DB
+        }
+        
+        exchange = mock_position["exchange"]
+        symbol = mock_position["symbol"]
+        is_futures = mock_position["is_futures"]
+        
+        # Get API credentials
+        exchange_ref = db.collection('users').document(user_id).collection('exchanges').document(exchange)
+        exchange_doc = exchange_ref.get()
+        
+        if not exchange_doc.exists:
+            raise HTTPException(status_code=404, detail=f"Exchange {exchange} not connected")
+        
+        exchange_data = exchange_doc.to_dict()
+        api_key = exchange_data.get('apiKey')
+        api_secret = exchange_data.get('apiSecret')
+        passphrase = exchange_data.get('passphrase', '')
+        
+        # Close position via exchange API
+        close_result = None
+        current_price = 0.0
+        
+        if exchange == "binance":
+            service = binance_service.BinanceService(api_key, api_secret)
+            close_result = await service.close_position(symbol, is_futures)
+            current_price = await service.get_current_price(symbol, is_futures)
+        elif exchange == "bybit":
+            service = bybit_service.BybitService(api_key, api_secret)
+            close_result = await service.close_position(symbol, is_futures)
+            current_price = await service.get_current_price(symbol, is_futures)
+        elif exchange == "okx":
+            service = okx_service.OKXService(api_key, api_secret, passphrase)
+            close_result = await service.close_position(symbol, is_futures)
+            current_price = await service.get_current_price(symbol, is_futures)
+        elif exchange == "kucoin":
+            service = kucoin_service.KuCoinService(api_key, api_secret, passphrase)
+            close_result = await service.close_position(symbol, is_futures)
+            current_price = await service.get_current_price(symbol, is_futures)
+        elif exchange == "mexc":
+            service = mexc_service.MEXCService(api_key, api_secret)
+            close_result = await service.close_position(symbol, is_futures)
+            current_price = await service.get_current_price(symbol, is_futures)
+        else:
+            raise HTTPException(status_code=400, detail=f"Exchange {exchange} not supported")
+        
+        # Calculate P&L
+        entry_price = mock_position["entry_price"]
+        side = mock_position["side"]
+        amount = mock_position["amount"]
+        
+        if side == "LONG":
+            pnl = (current_price - entry_price) * amount
+            pnl_percentage = ((current_price - entry_price) / entry_price) * 100
+        else:  # SHORT
+            pnl = (entry_price - current_price) * amount
+            pnl_percentage = ((entry_price - current_price) / entry_price) * 100
+        
+        print(f"[CLOSE POSITION] Closed at {current_price}")
+        print(f"[CLOSE POSITION] P&L: ${round(pnl, 2)} ({round(pnl_percentage, 2)}%)")
+        print(f"[CLOSE POSITION] All TP/SL orders cancelled")
+        
+        # TODO: Update position status in database
+        # await db.close_position(position_id, current_price, pnl, pnl_percentage)
+        
+        return {
+            "message": "Position closed successfully",
+            "position_id": position_id,
+            "closing_price": current_price,
+            "pnl": round(pnl, 2),
+            "pnl_percentage": round(pnl_percentage, 2),
+            "close_result": close_result
+        }
+        
+    except Exception as e:
+        print(f"[ERROR] Failed to close position: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to close position: {str(e)}")
 
 # Payment Endpoints
 @app.post("/api/payments/webhook")

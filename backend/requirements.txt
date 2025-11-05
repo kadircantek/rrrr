@@ -27,3 +27,6 @@ numpy==1.26.4
 
 # Monitoring & Logging
 python-json-logger==2.0.7
+
+# Firebase Admin SDK
+firebase-admin==6.4.0

@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { paymentAPI } from '@/lib/api';
 import { SUBSCRIPTION_PLANS } from '@/lib/payment';
 import type { SubscriptionTier, SubscriptionPlan } from '@/lib/payment';
+import { getUserSubscription } from '@/lib/firebaseAdmin';
 
 export type { SubscriptionTier, SubscriptionPlan };
 export { SUBSCRIPTION_PLANS };
@@ -21,8 +22,14 @@ export const useSubscription = () => {
 
     const fetchSubscription = async () => {
       try {
-        const response = await paymentAPI.getSubscription();
-        setTier(response.data.plan || 'free');
+        // Fetch from Firebase
+        const subscription = await getUserSubscription(user.uid);
+        
+        if (subscription && subscription.tier) {
+          setTier(subscription.tier);
+        } else {
+          setTier('free');
+        }
       } catch (error) {
         console.error('Failed to fetch subscription:', error);
         setTier('free');

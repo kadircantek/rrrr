@@ -249,9 +249,104 @@ class KuCoinService:
                     return active_positions
                 else:
                     raise Exception(f"KuCoin API error: {data.get('msg', 'Unknown error')}")
-                    
+                     
         except Exception as e:
             raise Exception(f"KuCoin positions error: {str(e)}")
+    
+    async def close_position(self, symbol: str, is_futures: bool = False) -> Dict:
+        """Close position"""
+        try:
+            print(f"[KUCOIN] Closing position: {symbol}")
+            
+            if not is_futures:
+                raise Exception("Spot doesn't have positions to close")
+            
+            # Get current position
+            positions = await self.get_positions(is_futures)
+            position = next((p for p in positions if p["symbol"] == symbol), None)
+            
+            if not position:
+                raise Exception(f"No open position found for {symbol}")
+            
+            # Close via market order
+            base_url = self._get_base_url(is_futures)
+            timestamp = str(int(time.time() * 1000))
+            method = "POST"
+            endpoint = "/api/v1/orders"
+            
+            close_side = "sell" if position["side"] == "LONG" else "buy"
+            
+            order_body = json.dumps({
+                "clientOid": str(int(time.time() * 1000)),
+                "side": close_side,
+                "symbol": symbol,
+                "type": "market",
+                "size": int(position["amount"]),
+                "reduceOnly": True
+            })
+            
+            signature, passphrase = self._generate_signature(timestamp, method, endpoint, order_body)
+            
+            headers = {
+                "KC-API-KEY": self.api_key,
+                "KC-API-SIGN": signature,
+                "KC-API-TIMESTAMP": timestamp,
+                "KC-API-PASSPHRASE": passphrase,
+                "KC-API-KEY-VERSION": "2",
+                "Content-Type": "application/json"
+            }
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{base_url}{endpoint}",
+                    content=order_body,
+                    headers=headers
+                )
+                response.raise_for_status()
+                result = response.json()
+                print(f"[KUCOIN] Position closed: {result.get('data', {}).get('orderId')}")
+                
+                # Cancel all open orders
+                await self.cancel_all_orders(symbol, is_futures)
+                
+                return result
+                
+        except Exception as e:
+            print(f"[KUCOIN ERROR] Close position failed: {str(e)}")
+            raise Exception(f"KuCoin close position error: {str(e)}")
+    
+    async def cancel_all_orders(self, symbol: str, is_futures: bool = False) -> bool:
+        """Cancel all open orders for a symbol"""
+        try:
+            print(f"[KUCOIN] Cancelling all orders for {symbol}")
+            
+            base_url = self._get_base_url(is_futures)
+            timestamp = str(int(time.time() * 1000))
+            method = "DELETE"
+            endpoint = f"/api/v1/orders?symbol={symbol}"
+            
+            signature, passphrase = self._generate_signature(timestamp, method, endpoint)
+            
+            headers = {
+                "KC-API-KEY": self.api_key,
+                "KC-API-SIGN": signature,
+                "KC-API-TIMESTAMP": timestamp,
+                "KC-API-PASSPHRASE": passphrase,
+                "KC-API-KEY-VERSION": "2"
+            }
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.delete(
+                    f"{base_url}{endpoint}",
+                    headers=headers
+                )
+                response.raise_for_status()
+                print(f"[KUCOIN] All orders cancelled for {symbol}")
+                return True
+                
+        except Exception as e:
+            print(f"[KUCOIN ERROR] Cancel orders failed: {str(e)}")
+            return False
 
 
 async def get_balance(api_key: str, api_secret: str, is_futures: bool = False, passphrase: str = "") -> Dict:

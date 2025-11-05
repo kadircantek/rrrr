@@ -210,9 +210,108 @@ class OKXService:
                     return active_positions
                 else:
                     raise Exception(f"OKX API error: {data.get('msg', 'Unknown error')}")
-                    
+                     
         except Exception as e:
             raise Exception(f"OKX positions error: {str(e)}")
+    
+    async def close_position(self, symbol: str, is_futures: bool = False) -> Dict:
+        """Close position"""
+        try:
+            print(f"[OKX] Closing position: {symbol}")
+            
+            if not is_futures:
+                raise Exception("Spot doesn't have positions to close")
+            
+            # Get current position
+            positions = await self.get_positions(is_futures)
+            position = next((p for p in positions if p["symbol"] == symbol), None)
+            
+            if not position:
+                raise Exception(f"No open position found for {symbol}")
+            
+            # Close via market order
+            timestamp = datetime.utcnow().isoformat("T", "milliseconds") + "Z"
+            method = "POST"
+            request_path = "/api/v5/trade/order"
+            
+            close_side = "sell" if position["side"] == "LONG" else "buy"
+            
+            order_body = {
+                "instId": symbol,
+                "tdMode": "cross",
+                "side": close_side,
+                "ordType": "market",
+                "sz": str(position["amount"]),
+                "reduceOnly": True
+            }
+            
+            body_str = json.dumps(order_body)
+            signature = self._generate_signature(timestamp, method, request_path, body_str)
+            
+            headers = {
+                "OK-ACCESS-KEY": self.api_key,
+                "OK-ACCESS-SIGN": signature,
+                "OK-ACCESS-TIMESTAMP": timestamp,
+                "OK-ACCESS-PASSPHRASE": self.passphrase,
+                "Content-Type": "application/json"
+            }
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{self.BASE_URL}{request_path}",
+                    content=body_str,
+                    headers=headers
+                )
+                response.raise_for_status()
+                result = response.json()
+                print(f"[OKX] Position closed: {result.get('data', [{}])[0].get('ordId')}")
+                
+                # Cancel all open orders
+                await self.cancel_all_orders(symbol, is_futures)
+                
+                return result
+                
+        except Exception as e:
+            print(f"[OKX ERROR] Close position failed: {str(e)}")
+            raise Exception(f"OKX close position error: {str(e)}")
+    
+    async def cancel_all_orders(self, symbol: str, is_futures: bool = False) -> bool:
+        """Cancel all open orders for a symbol"""
+        try:
+            print(f"[OKX] Cancelling all orders for {symbol}")
+            
+            timestamp = datetime.utcnow().isoformat("T", "milliseconds") + "Z"
+            method = "POST"
+            request_path = "/api/v5/trade/cancel-all"
+            
+            cancel_body = {
+                "instId": symbol
+            }
+            
+            body_str = json.dumps(cancel_body)
+            signature = self._generate_signature(timestamp, method, request_path, body_str)
+            
+            headers = {
+                "OK-ACCESS-KEY": self.api_key,
+                "OK-ACCESS-SIGN": signature,
+                "OK-ACCESS-TIMESTAMP": timestamp,
+                "OK-ACCESS-PASSPHRASE": self.passphrase,
+                "Content-Type": "application/json"
+            }
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{self.BASE_URL}{request_path}",
+                    content=body_str,
+                    headers=headers
+                )
+                response.raise_for_status()
+                print(f"[OKX] All orders cancelled for {symbol}")
+                return True
+                
+        except Exception as e:
+            print(f"[OKX ERROR] Cancel orders failed: {str(e)}")
+            return False
 
 
 async def get_balance(api_key: str, api_secret: str, is_futures: bool = False, passphrase: str = "") -> Dict:
