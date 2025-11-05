@@ -28,6 +28,8 @@ if AUTO_TRADING_AVAILABLE:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "https://aitraderglobal-1.onrender.com",
+        "https://aitraderglobal.onrender.com",
         "https://aitraderglobal-1.lovable.app",
         "https://aitraderglobal.lovable.app", 
         "http://localhost:5173",

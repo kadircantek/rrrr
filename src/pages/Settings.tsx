@@ -77,12 +77,12 @@ const Settings = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="exchanges" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-8">
-            <TabsTrigger value="exchanges">{t('settings.exchanges')}</TabsTrigger>
-            <TabsTrigger value="trading">{t('settings.trading')}</TabsTrigger>
-            <TabsTrigger value="auto-trading">Auto Trading</TabsTrigger>
-            <TabsTrigger value="subscription">{t('settings.subscription')}</TabsTrigger>
-            <TabsTrigger value="profile">{t('settings.profile')}</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-8 h-auto">
+            <TabsTrigger value="exchanges" className="whitespace-normal text-xs sm:text-sm">{t('settings.exchanges')}</TabsTrigger>
+            <TabsTrigger value="trading" className="whitespace-normal text-xs sm:text-sm">{t('settings.trading')}</TabsTrigger>
+            <TabsTrigger value="auto-trading" className="whitespace-normal text-xs sm:text-sm">Auto Trading</TabsTrigger>
+            <TabsTrigger value="subscription" className="whitespace-normal text-xs sm:text-sm">{t('settings.subscription')}</TabsTrigger>
+            <TabsTrigger value="profile" className="whitespace-normal text-xs sm:text-sm">{t('settings.profile')}</TabsTrigger>
           </TabsList>
 
           {/* Exchanges Tab */}

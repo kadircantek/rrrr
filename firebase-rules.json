@@ -54,6 +54,27 @@
       }
     },
     
+    "user_subscriptions": {
+      "$uid": {
+        ".read": "$uid === auth.uid || auth.uid === 'ADMIN_UID'",
+        ".write": "$uid === auth.uid || auth.uid === 'ADMIN_UID'",
+        ".validate": "newData.hasChildren(['tier', 'startDate', 'status']) && newData.child('tier').isString() && newData.child('startDate').isString() && newData.child('status').isString()"
+      }
+    },
+    
+    "user_roles": {
+      "$uid": {
+        ".read": "$uid === auth.uid || auth.uid === 'ADMIN_UID'",
+        ".write": "$uid === auth.uid || auth.uid === 'ADMIN_UID'",
+        "role": {
+          ".validate": "newData.isString() && (newData.val() === 'admin' || newData.val() === 'user')"
+        },
+        "updatedAt": {
+          ".validate": "newData.isString()"
+        }
+      }
+    },
+    
     "secure_keys": {
       "$uid": {
         ".read": false,
