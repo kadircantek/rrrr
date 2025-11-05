@@ -3,11 +3,15 @@ Auto Trading API Endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING, Any
 from datetime import datetime
 import logging
 
 from backend.auth import get_current_user
+
+if TYPE_CHECKING:
+    from backend.services.ema_monitor import EMAMonitor
+
 try:
     from backend.services.ema_monitor import EMAMonitor
     EMA_MONITOR_AVAILABLE = True
@@ -19,7 +23,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auto-trading", tags=["auto-trading"])
 
 # Global monitor instance
-ema_monitor: Optional[EMAMonitor] = None
+ema_monitor: Optional[Any] = None
 
 class AutoTradingSettings(BaseModel):
     enabled: bool
