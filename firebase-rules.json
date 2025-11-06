@@ -78,8 +78,14 @@
     "user_subscriptions": {
       "$uid": {
         ".read": "$uid === auth.uid || root.child('user_roles').child(auth.uid).child('role').val() === 'admin'",
-        ".write": "root.child('user_roles').child(auth.uid).child('role').val() === 'admin'",
-        ".validate": "newData.hasChildren(['tier', 'startDate', 'status'])"
+        ".write": "$uid === auth.uid || root.child('user_roles').child(auth.uid).child('role').val() === 'admin'"
+      }
+    },
+
+    "subscriptions": {
+      "$email_key": {
+        ".read": "auth != null",
+        ".write": "auth != null"
       }
     },
     
