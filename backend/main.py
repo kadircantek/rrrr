@@ -199,13 +199,20 @@ try:
 except ImportError:
     print("⚠️ Warning: Admin module not available")
 
+try:
+    from backend.api.integrations import router as integrations_router
+    app.include_router(integrations_router)
+    print("✅ Integrations module loaded")
+except ImportError:
+    print("⚠️ Warning: Integrations module not available")
+
 # ✅ FIXED: Transactions router with dependency override
 try:
     from backend.api.transactions import router as transactions_router, get_current_user_stub
-    
+
     # Dependency override to fix circular import
     transactions_router.dependency_overrides[get_current_user_stub] = get_current_user
-    
+
     # Include router with /api prefix
     app.include_router(transactions_router, prefix="/api")
     print("✅ Transactions module loaded")
