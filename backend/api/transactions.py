@@ -1,4 +1,5 @@
 # Transaction History Endpoint
+# Updated: 2025-11-06 - Fixed auth dependency
 from fastapi import APIRouter, HTTPException, Depends, Header
 from typing import Optional, List, Dict
 from datetime import datetime, timedelta

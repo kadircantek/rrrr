@@ -1,4 +1,5 @@
 # Exchange Balance Endpoint - Firebase Version with Unified Service
+# Updated: 2025-11-06 - Fixed auth dependency
 from fastapi import APIRouter, HTTPException, Depends, Header
 from typing import Optional
 import logging
