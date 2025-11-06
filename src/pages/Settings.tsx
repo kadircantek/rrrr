@@ -15,6 +15,7 @@ import { database } from "@/lib/firebase";
 import ExchangeList from "@/components/ExchangeList";
 import { IPWhitelistCard } from "@/components/IPWhitelistCard";
 import { AutoTradingToggle } from "@/components/AutoTradingToggle";
+import { ProFeature } from "@/components/FeatureGuard";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 const Settings = () => {
@@ -220,8 +221,10 @@ const Settings = () => {
                 </div>
               </CardContent>
             </Card>
-            
-            <AutoTradingToggle />
+
+            <ProFeature feature="Otomatik Trading Botu">
+              <AutoTradingToggle />
+            </ProFeature>
           </TabsContent>
 
           {/* Subscription Tab */}

@@ -389,12 +389,29 @@ async def login(user: UserLogin):
 async def add_api_key(api_input: APIKeyInput, current_user: dict = Depends(get_current_user)):
     """Add and validate exchange API key"""
     try:
-        from backend.firebase_admin import save_user_api_keys
+        from backend.firebase_admin import save_user_api_keys, get_user_subscription, get_all_user_exchanges
         firebase_available = True
     except ImportError:
         firebase_available = False
         print("⚠️ Firebase admin not available, using mock storage")
-    
+
+    # Check subscription plan and exchange limits
+    if firebase_available:
+        user_id = current_user.get("user_id")
+        subscription = get_user_subscription(user_id)
+        user_tier = subscription.get('tier', 'free') if subscription else 'free'
+
+        # Get current exchanges count
+        current_exchanges = get_all_user_exchanges(user_id)
+        exchange_count = len(current_exchanges)
+
+        # Free plan: 1 exchange only
+        if user_tier == 'free' and exchange_count >= 1:
+            raise HTTPException(
+                status_code=403,
+                detail="Exchange limit reached. Free plan allows 1 exchange. Upgrade to Pro for unlimited exchanges."
+            )
+
     exchange = api_input.exchange.lower()
     
     # Validate API credentials
