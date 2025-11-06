@@ -6,7 +6,8 @@ from backend.main import get_current_user
 
 router = APIRouter()
 
-@router.get("/api/bot/transactions")
+# ✅ Route'ları düzelttik - /api/bot prefix'ini kaldırdık
+@router.get("/bot/transactions")  # ✅ DOĞRU
 async def get_transaction_history(
     hours: int = 24,
     current_user: dict = Depends(get_current_user)
@@ -82,7 +83,7 @@ async def get_transaction_history(
         raise HTTPException(status_code=500, detail=f"Failed to fetch transactions: {str(e)}")
 
 
-@router.get("/api/bot/transactions/stats")
+@router.get("/bot/transactions/stats")  # ✅ DOĞRU
 async def get_transaction_stats(
     days: int = 30,
     current_user: dict = Depends(get_current_user)
