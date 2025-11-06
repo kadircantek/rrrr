@@ -17,7 +17,7 @@ except ImportError:
     import httpx
     import os
 
-    SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+    SECRET_KEY = os.getenv("JWT_SECRET_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NTQzMjF4eXoiLCJlbWFpbCI6Imt1bGxhbmljaUBleGFtcGxlLmNvbSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzYyNDM4MjMwLCJleHAiOjE3NjMwNDMwMzB9.3xp821UGnFcTUX4LJxjQI_Px6tcMgb9jbLxlmDbddP4")
     FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY", "AIzaSyDqAsiITYyPK9bTuGGz7aVBkZ7oLB2Kt3U")
 
     async def get_current_user(authorization: str = Header(None)):
