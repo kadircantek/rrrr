@@ -57,7 +57,16 @@ async def get_exchange_balance(
             passphrase=passphrase
         )
 
-        return balance
+        # Transform to frontend format
+        return {
+            "exchange": balance.get("exchange"),
+            "type": balance.get("type"),
+            "currency": balance.get("currency", "USDT"),
+            "total_balance": balance.get("total", 0),
+            "available_balance": balance.get("available", 0),
+            "used_balance": balance.get("locked", 0),
+            "timestamp": balance.get("timestamp")
+        }
 
     except HTTPException:
         raise
